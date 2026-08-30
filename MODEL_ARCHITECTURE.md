@@ -144,9 +144,9 @@ graph TD
     Supervisor -->|5. Verify eligibility| Eligibility[Eligibility Agent]
     Supervisor -->|6. Calculate research fit| ResearchMatch[Research Match Agent]
     Supervisor -->|7. Audit evidence & URLs| Verification[Verification Agent]
-    Supervisor -->|8. Compute weighted score| Ranking[Ranking Agent<br/>deterministic Python math]
-    Supervisor -->|9. Human Checkpoint| Gate[Approval Gate<br/>interrupt&#40;&#41; pauses here]
-    Supervisor -->|10. Draft SOP & materials| SOP[SOP Agent<br/>RAG-grounded in CV]
+    Supervisor -->|8. Compute weighted score| Ranking["Ranking Agent<br/>deterministic Python math"]
+    Supervisor -->|9. Human Checkpoint| Gate["Approval Gate<br/>pauses for human decision"]
+    Supervisor -->|10. Draft SOP & materials| SOP["SOP Agent<br/>RAG-grounded in CV"]
     
     Profile --> Supervisor
     University --> Supervisor

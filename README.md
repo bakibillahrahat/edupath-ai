@@ -200,8 +200,8 @@ graph TD
     Supervisor --> Eligibility[Eligibility Agent]
     Supervisor --> ResearchMatch[Research Match Agent]
     Supervisor --> Verification[Verification Agent]
-    Supervisor --> Ranking[Ranking Agent<br/>deterministic, no LLM call]
-    Supervisor --> Gate[Approval Gate<br/>interrupt&#40;&#41; pauses here]
+    Supervisor --> Ranking["Ranking Agent<br/>deterministic, no LLM call"]
+    Supervisor --> Gate["Approval Gate<br/>pauses for human decision"]
     Supervisor --> SOP[SOP Agent]
     Profile --> Supervisor
     University --> Supervisor
