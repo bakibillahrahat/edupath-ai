@@ -8,9 +8,9 @@ from uuid import UUID, uuid4
 import docx
 import pytest
 
-import app.services.document as document_module
+import app.modules.sop.document_service as document_module
 from app.core.exceptions import LLMError
-from app.services.document import DocumentService, DocumentValidationError, _chunk_text, _extract_text
+from app.modules.sop.document_service import DocumentService, DocumentValidationError, _chunk_text, _extract_text
 
 
 def _build_docx_bytes(paragraphs: list[str]) -> bytes:

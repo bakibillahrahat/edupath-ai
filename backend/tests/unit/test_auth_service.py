@@ -5,11 +5,11 @@ from uuid import UUID, uuid4
 
 import pytest
 
-import app.services.auth as auth_module
+import app.modules.auth.service as auth_module
 from app.core.exceptions import AuthDisabledError, AuthenticationError
 from app.core.security import create_access_token
-from app.database.models.entities import User
-from app.services.auth import AuthService
+from app.modules.auth.models import User
+from app.modules.auth.service import AuthService
 
 
 class FakeRedis:

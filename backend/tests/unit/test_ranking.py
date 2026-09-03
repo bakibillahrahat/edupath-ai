@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from app.graph.ranking import rank_opportunities
-from app.schemas.opportunity_candidate import (
+from app.modules.ai_orchestration.graph.ranking import rank_opportunities
+from app.modules.opportunities.schemas import (
     CandidateOpportunity,
     EligibilityVerdict,
     Evidence,
+    RankedOpportunity,
     ResearchMatchVerdict,
+    VerificationVerdict,
 )
 
 

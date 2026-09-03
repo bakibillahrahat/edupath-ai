@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.graph.workflow import build_graph
-from app.graph.routing import build_execution_plan
-from app.schemas.agent import AgentMessage, SupervisorDecision, TokenUsage
+from app.modules.ai_orchestration.graph.workflow import build_graph
+from app.modules.ai_orchestration.graph.routing import build_execution_plan
+from app.modules.ai_orchestration.schemas import AgentMessage, SupervisorDecision, TokenUsage
 
 
 class FakeResult:
@@ -245,7 +245,7 @@ def test_workflow_runs_through_research_match_and_ranking_agents():
     assert any(message.sender == "ranking_agent" for message in result["agent_messages"])
 
 
-from app.agents.profile.agent import build_profile_agent, ProfileAgentOutput
+from app.modules.ai_orchestration.agents.profile.agent import build_profile_agent, ProfileAgentOutput
 
 def test_profile_agent_unit():
     """Tests the profile agent in isolation."""

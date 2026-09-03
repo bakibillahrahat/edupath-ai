@@ -34,3 +34,7 @@ class ApplicationRepository:
     async def delete(self, session: AsyncSession, application: Application) -> None:
         await session.delete(application)
         await session.commit()
+
+
+TrackerRepository = ApplicationRepository
+__all__ = ["ApplicationRepository", "TrackerRepository"]

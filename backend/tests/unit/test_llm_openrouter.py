@@ -11,7 +11,7 @@ import pytest
 from pydantic import BaseModel
 
 from app.core.exceptions import LLMError, LLMQuotaError
-from app.llm.openrouter import (
+from app.infrastructure.llm.openrouter import (
     OpenRouterProvider,
     _is_non_retryable_client_error,
     _is_quota_error,

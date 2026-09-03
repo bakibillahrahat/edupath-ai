@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.schemas.tool import ToolSearchResponse, ToolSearchResult, ToolSource
-from app.services.tooling import ToolingService, _professor_discovery_relevant
+from app.modules.ai_orchestration.schemas import ToolSearchResponse, ToolSearchResult, ToolSource
+from app.modules.ai_orchestration.service import ToolingService, _professor_discovery_relevant
 
 
 def _empty_response(tool_name: str) -> ToolSearchResponse:

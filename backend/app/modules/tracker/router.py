@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.session import get_db
+from app.infrastructure.database.session import get_db
 from app.modules.tracker.schemas import ApplicationCreate, ApplicationRead, ApplicationUpdate
 from app.modules.tracker.service import TrackerService
 

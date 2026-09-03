@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 
 from app.core.exceptions import LLMQuotaError
 from app.main import app
-from app.schemas.workflow import WorkflowCreateRequest
-from app.services.workflow import WorkflowService
+from app.modules.ai_orchestration.schemas import WorkflowCreateRequest
+from app.modules.ai_orchestration.service import WorkflowService
 
 
 class _RecordingRepository:
@@ -88,7 +88,7 @@ async def test_workflow_propagates_quota_error() -> None:
 
 def test_fastapi_returns_429_for_quota_error(monkeypatch) -> None:
     """The HTTP layer must map LLMQuotaError to 429 with the requested body shape."""
-    from app.api.routes import workflows as workflows_route
+    from app.modules.ai_orchestration.router import get_workflow_service
 
     class _QuotingService:
         def __init__(self) -> None:
@@ -106,7 +106,7 @@ def test_fastapi_returns_429_for_quota_error(monkeypatch) -> None:
             )
 
     service = _QuotingService()
-    app.dependency_overrides[workflows_route.get_workflow_service] = lambda: service
+    app.dependency_overrides[get_workflow_service] = lambda: service
 
     try:
         with TestClient(app) as client:
@@ -115,7 +115,7 @@ def test_fastapi_returns_429_for_quota_error(monkeypatch) -> None:
                 json={"user_request": "I want a funded PhD in AI in USA.", "workflow_type": "opportunity_discovery"},
             )
     finally:
-        app.dependency_overrides.pop(workflows_route.get_workflow_service, None)
+        app.dependency_overrides.pop(get_workflow_service, None)
 
     assert response.status_code == 429
     body = response.json()
@@ -129,7 +129,7 @@ def test_fastapi_returns_429_for_quota_error(monkeypatch) -> None:
 
 def test_supervisor_propagates_quota_error() -> None:
     """The supervisor must not silently absorb quota errors and continue with a fallback plan."""
-    from app.agents.supervisor.agent import build_supervisor_agent
+    from app.modules.ai_orchestration.agents.supervisor.agent import build_supervisor_agent
     from app.core.exceptions import LLMQuotaError
 
     class _QuotaProvider:
@@ -161,7 +161,7 @@ def test_supervisor_propagates_quota_error() -> None:
 
 def test_profile_agent_propagates_quota_error() -> None:
     """Profile agent must not silently absorb quota errors."""
-    from app.agents.profile.agent import build_profile_agent
+    from app.modules.ai_orchestration.agents.profile.agent import build_profile_agent
     from app.core.exceptions import LLMQuotaError
 
     class _QuotaProvider:

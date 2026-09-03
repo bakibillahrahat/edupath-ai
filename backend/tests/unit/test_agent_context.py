@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from app.agents.context import candidates_from_tool_results, summarize_candidates
-from app.schemas.opportunity_candidate import CandidateOpportunity
+from app.modules.ai_orchestration.agents.context import candidates_from_tool_results, summarize_candidates
+from app.modules.opportunities.schemas import CandidateOpportunity
 
 
 def _tool_result(tool_name: str, results: list[dict]) -> dict:

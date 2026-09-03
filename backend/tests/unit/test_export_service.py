@@ -4,7 +4,7 @@ import io
 
 from openpyxl import load_workbook
 
-from app.services.export import build_workflow_workbook
+from app.modules.ai_orchestration.service import build_workflow_workbook
 
 
 def test_build_workflow_workbook_has_five_sheets_with_real_data():

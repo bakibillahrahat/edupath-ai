@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.schemas.opportunity_candidate import CandidateOpportunity
-from app.services.catalog_sync import CatalogSyncService
+from app.modules.opportunities.schemas import CandidateOpportunity
+from app.modules.opportunities.service import CatalogSyncService
 
 
 class FakeUniversityRepository:

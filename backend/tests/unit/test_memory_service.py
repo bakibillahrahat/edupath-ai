@@ -5,8 +5,8 @@ from uuid import UUID
 
 import pytest
 
-import app.services.memory as memory_module
-from app.services.memory import MemoryService
+import app.modules.memory.service as memory_module
+from app.modules.memory.service import MemoryService
 
 
 class _NoEmbeddingProvider:

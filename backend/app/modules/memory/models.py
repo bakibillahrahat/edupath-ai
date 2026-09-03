@@ -11,7 +11,7 @@ from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.database.base import Base
+from app.infrastructure.database.base import Base
 
 
 class TimestampMixin:

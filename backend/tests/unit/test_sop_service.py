@@ -7,8 +7,8 @@ from uuid import UUID, uuid4
 import pytest
 
 from app.core.exceptions import LLMError
-from app.schemas.sop import SOPGenerateRequest, SOPReviseRequest
-from app.services.sop import SOPService
+from app.modules.sop.schemas import SOPGenerateRequest, SOPReviseRequest
+from app.modules.sop.service import SOPService
 
 
 class FakeResult:

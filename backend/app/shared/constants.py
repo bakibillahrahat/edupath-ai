@@ -1,0 +1,6 @@
+"""
+Shared domain constants.
+"""
+DEFAULT_PAGE_SIZE = 20
+MAX_PAGE_SIZE = 100
+DEFAULT_WORKFLOW_TIMEOUT_SECONDS = 300

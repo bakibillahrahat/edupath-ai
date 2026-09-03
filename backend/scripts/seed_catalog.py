@@ -29,8 +29,8 @@ import asyncio
 
 from sqlalchemy import select
 
-from app.database.models.entities import Opportunity, Program, University
-from app.database.session import AsyncSessionLocal
+from app.modules.opportunities.models import Opportunity, Program, University
+from app.infrastructure.database.session import AsyncSessionLocal
 
 UNIVERSITIES: list[dict] = [
     {

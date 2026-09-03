@@ -2,6 +2,11 @@
 .DS_Store
 Thumbs.db
 
+# IDE & AI tools
+.claude/
+.idea/
+.vscode/
+
 # Python
 __pycache__/
 *.py[cod]

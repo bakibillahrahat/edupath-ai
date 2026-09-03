@@ -4,7 +4,11 @@ import httpx
 import pytest
 
 from app.core.exceptions import LLMError
-from app.tools.page_extractor import PageExtractorTool, _PageExtractionOutput, _ExtractedEntity
+from app.modules.ai_orchestration.tools.page_extractor import (
+    PageExtractorTool,
+    _ExtractedEntity,
+    _PageExtractionOutput,
+)
 
 _SAMPLE_HTML = """
 <html>

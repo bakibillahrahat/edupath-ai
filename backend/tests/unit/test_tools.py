@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.tools.opportunity_search import OpportunitySearchTool
-from app.tools.professor_search import ProfessorSearchTool
-from app.tools.university_search import UniversitySearchTool
-from app.tools.web_search import WebSearchTool
+from app.modules.ai_orchestration.tools.opportunity_search import OpportunitySearchTool
+from app.modules.ai_orchestration.tools.professor_search import ProfessorSearchTool
+from app.modules.ai_orchestration.tools.university_search import UniversitySearchTool
+from app.modules.ai_orchestration.tools.web_search import WebSearchTool
 
 
 class FakeUniversity:

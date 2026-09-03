@@ -7,10 +7,10 @@ from uuid import UUID
 
 import pytest
 
-from app.schemas.agent import AgentMessage, AgentResult
-from app.schemas.workflow import WorkflowCreateRequest
-from app.services.profile import ProfileService
-from app.services.workflow import WorkflowNotResumableError, WorkflowService
+from app.modules.ai_orchestration.schemas import WorkflowCreateRequest
+from app.modules.ai_orchestration.service import WorkflowNotResumableError, WorkflowService
+from app.modules.profiles.service import ProfileService
+from app.modules.ai_orchestration.schemas import AgentMessage, AgentResult
 
 
 @dataclass
@@ -280,7 +280,7 @@ async def test_workflow_service_resume_rejects_when_not_awaiting_approval() -> N
 class FakeGraphWithCandidates(FakeGraph):
     def invoke(self, state: dict) -> dict:
         result = super().invoke(state)
-        from app.schemas.opportunity_candidate import CandidateOpportunity
+        from app.modules.opportunities.schemas import CandidateOpportunity
         result["candidate_opportunities"] = [
             CandidateOpportunity(id="c1", title="Example PhD", university="Example University", created_by="test")
         ]
@@ -334,7 +334,8 @@ async def test_workflow_service_skips_catalog_sync_when_no_candidates() -> None:
 
 
 def test_counseling_schema_accepts_analysis_payload() -> None:
-    from app.schemas.counseling import CounselingAnalyzeRequest
+    from app.modules.ai_orchestration.schemas import CounselingAnalyzeRequest
+    from app.modules.ai_orchestration.schemas import CounselingAnalyzeResponse
 
     payload = CounselingAnalyzeRequest(
         user_request="I want a funded PhD in AI in the USA.",
@@ -346,7 +347,7 @@ def test_counseling_schema_accepts_analysis_payload() -> None:
 
 
 def test_counseling_response_keeps_full_workflow_payload() -> None:
-    from app.schemas.counseling import CounselingAnalyzeResponse
+    from app.modules.ai_orchestration.schemas import CounselingAnalyzeResponse
 
     result = CounselingAnalyzeResponse(
         workflow_id="wf-123",
