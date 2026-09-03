@@ -1,483 +1,245 @@
 """
-New Counseling Session — Adaptive Multi-Step AI Intake Wizard & Workforce Execution.
-
-Steps:
-  1. Profile      (Basic background)
-  2. Academic     (GPA, test scores, graduation)
-  3. Experience   (Conditional: UG=Activities/Goals, Masters=Projects/Skills, PhD=Research/Publications)
-  4. Preferences  (Target countries, degree level, funding, intake)
-  5. Review       (Structured pre-flight confirmation)
-  6. AI Analysis  (Live multi-agent workforce orchestration screen)
+AI Counseling & Strategy Hub — Synchronized Multi-Agent Workforce Orchestration.
 """
 from __future__ import annotations
 
-import textwrap
 import streamlit as st
 
-from api.client import BackendError, analyze_counseling
+from api.client import BackendError, analyze_counseling, get_counseling_session, list_opportunities_cached, list_workflows
 from components.common import render_backend_error, render_html, section_header
 from components.empty_state import render_empty_state
 from components.header import render_page_header
 from components.workflow_status import render_workflow_status
 
-_STEPS = ["Profile", "Academic", "Experience", "Preferences", "Review", "AI Analysis"]
-
 _DEGREE_LEVELS = ["Undergraduate", "Masters", "PhD", "Postdoctoral"]
-_FUNDING_OPTIONS = ["Fully Funded (RA/TA/Fellowship)", "Partial Funding / Tuition Waiver", "Self-Funded", "Any Funding Available"]
+_FUNDING_OPTIONS = [
+    "Fully Funded (RA/TA/Fellowship)",
+    "Partial Funding / Tuition Waiver",
+    "Self-Funded",
+    "Any Funding Available",
+]
 _INTAKE_OPTIONS = ["Fall 2026", "Spring 2027", "Fall 2027", "Spring 2028", "Flexible"]
-_UNIVERSITY_TYPE_OPTIONS = ["Top Research University (R1 / Russell Group)", "Technical Institute / STEM Focus", "Global Comprehensive University", "Liberal Arts / Teaching Focused", "Any"]
 _COUNTRY_OPTIONS = [
     "USA", "Canada", "UK", "Germany", "Australia", "Netherlands",
     "Sweden", "Switzerland", "Singapore", "Japan", "France", "Denmark",
     "Finland", "Norway", "Ireland", "South Korea",
 ]
-_RESEARCH_DOMAIN_OPTIONS = [
-    "Artificial Intelligence", "Machine Learning", "Deep Learning",
-    "Natural Language Processing", "Computer Vision", "Robotics",
-    "Computer Security / Cybersecurity", "Edge Computing & IoT", "AI Hardware Security",
-    "Bioinformatics & Computational Biology", "Data Science & Big Data Analytics",
-    "Human-Computer Interaction (HCI)", "Distributed Systems & Cloud", "Quantum Computing",
-    "Renewable Energy & Climate Tech", "Materials Science", "Computational Neuroscience",
-    "Quantitative Economics & Finance", "Public Policy & Global Affairs",
-]
 
 
 def _html(content: str) -> None:
-    """Render HTML safely via st.html without markdown code block artifacts."""
     render_html(content)
 
 
-def _init_wizard() -> None:
-    if "counseling_step" not in st.session_state:
-        st.session_state["counseling_step"] = 0
-    if "counseling_data" not in st.session_state:
-        profile = st.session_state.get("profile") or {}
-        st.session_state["counseling_data"] = {
-            "name": profile.get("name", ""),
-            "current_degree": profile.get("current_degree") or "Undergraduate",
-            "major": profile.get("field_of_study", ""),
-            "university": profile.get("university", ""),
-            "country": profile.get("country_of_residence") or "United States",
-            "cgpa": str(profile.get("gpa") or ""),
-            "gpa_scale": "4.0",
-            "ielts": "",
-            "toefl": "",
-            "gre": "",
-            "sat_act": "",
-            "graduation_year": str(profile.get("graduation_year") or "2026"),
-            "achievements": "",
-            "research_experience": profile.get("work_experience", ""),
-            "publications": str(profile.get("publications") or ""),
-            "projects": profile.get("projects", ""),
-            "skills": profile.get("skills", ""),
-            "research_interests": profile.get("research_interests", ""),
-            "research_domains": [],
-            "preferred_faculty": "",
-            "target_countries": profile.get("target_countries") or ["USA", "Canada"],
-            "target_degree": profile.get("target_degree") or "PhD",
-            "funding_requirement": profile.get("preferred_funding") or "Fully Funded (RA/TA/Fellowship)",
-            "target_intake": "Fall 2027",
-            "university_type": "Top Research University (R1 / Russell Group)",
-        }
+def _compose_request(profile: dict, calib: dict) -> str:
+    name = profile.get("name") or "Applicant"
+    major = calib.get("subject_domain") or profile.get("field_of_study") or "Computer Science & Engineering"
+    current_deg = profile.get("current_degree") or profile.get("academic_level") or "BSc"
+    uni = profile.get("university") or "Accredited Institution"
+    target_degree = calib.get("target_degree") or "PhD"
+    gpa = profile.get("gpa")
 
+    is_ug = "undergrad" in target_degree.lower()
 
-def _render_step_indicator(current: int) -> None:
-    steps_html = '<div class="ep-wizard-steps">'
-    for i, label in enumerate(_STEPS):
-        if i < current:
-            cls = "completed"
-            icon = "✓"
-        elif i == current:
-            cls = "active"
-            icon = str(i + 1)
-        else:
-            cls = ""
-            icon = str(i + 1)
-        steps_html += f'<div class="ep-wizard-step {cls}"><div class="ep-wizard-step-num">{icon}</div><div class="ep-wizard-step-label">{label}</div></div>'
-        if i < len(_STEPS) - 1:
-            connector_cls = "completed" if i < current else ""
-            steps_html += f'<div class="ep-wizard-step-connector {connector_cls}"></div>'
-    steps_html += "</div>"
-    _html(steps_html)
-
-
-def _nav_buttons(step: int, total: int = len(_STEPS) - 1) -> tuple[bool, bool]:
-    cols = st.columns([1, 3, 1])
-    back = False
-    nxt = False
-    with cols[0]:
-        if step > 0:
-            back = st.button("← Back", key=f"wizard-back-{step}", use_container_width=True)
-    with cols[2]:
-        label = "Review Profile →" if step == total - 1 else ("Start AI Analysis →" if step == total else "Continue →")
-        nxt = st.button(label, key=f"wizard-next-{step}", type="primary", use_container_width=True)
-    return back, nxt
-
-
-def render_step_profile() -> None:
-    data = st.session_state["counseling_data"]
-    section_header("Personal & Academic Identity", "Tell us about your background so we can calibrate admission requirements.")
-
-    cols = st.columns(2)
-    with cols[0]:
-        data["name"] = st.text_input("Full Name", value=data["name"], placeholder="Alex Rahman")
-    with cols[1]:
-        data["target_degree"] = st.selectbox(
-            "Degree Level You Are Applying For",
-            _DEGREE_LEVELS,
-            index=_DEGREE_LEVELS.index(data["target_degree"]) if data["target_degree"] in _DEGREE_LEVELS else 2,
-            help="Your form fields will adapt based on whether you are applying for Undergraduate, Masters, or PhD.",
-        )
-
-    cols2 = st.columns(2)
-    with cols2[0]:
-        data["major"] = st.text_input("Current Major / Field of Study", value=data["major"], placeholder="Computer Science")
-    with cols2[1]:
-        data["university"] = st.text_input("Current Institution / University", value=data["university"], placeholder="University of Washington")
-
-    data["country"] = st.text_input("Citizenship / Country of Residence", value=data["country"], placeholder="United States")
-
-    back, nxt = _nav_buttons(0)
-    if back:
-        st.session_state["counseling_step"] = max(0, st.session_state["counseling_step"] - 1)
-        st.rerun()
-    if nxt:
-        if not data["name"].strip():
-            st.warning("Please enter your name.", icon=":material/warning:")
-        elif not data["major"].strip():
-            st.warning("Please enter your field of study.", icon=":material/warning:")
-        else:
-            st.session_state["counseling_step"] = 1
-            st.rerun()
-
-
-def render_step_academic() -> None:
-    data = st.session_state["counseling_data"]
-    is_ug = data.get("target_degree") == "Undergraduate"
-
-    section_header("Academic Credentials & Test Scores", "Scores are verified against university admission cutoffs.")
-
-    cols = st.columns(2)
-    with cols[0]:
-        data["cgpa"] = st.text_input("Cumulative GPA", value=data["cgpa"], placeholder="3.82")
-    with cols[1]:
-        data["gpa_scale"] = st.selectbox("GPA Scale", ["4.0 Scale", "5.0 Scale", "10.0 Scale", "Percentage (100%)"], index=0)
-
-    if is_ug:
-        cols_tests = st.columns(2)
-        with cols_tests[0]:
-            data["sat_act"] = st.text_input("SAT / ACT Score (optional)", value=data.get("sat_act", ""), placeholder="SAT 1480 / ACT 33")
-        with cols_tests[1]:
-            data["ielts"] = st.text_input("IELTS / TOEFL Score (optional)", value=data["ielts"], placeholder="IELTS 7.5 / TOEFL 105")
-    else:
-        cols_tests = st.columns(3)
-        with cols_tests[0]:
-            data["ielts"] = st.text_input("IELTS Score (optional)", value=data["ielts"], placeholder="7.5")
-        with cols_tests[1]:
-            data["toefl"] = st.text_input("TOEFL Score (optional)", value=data["toefl"], placeholder="105")
-        with cols_tests[2]:
-            data["gre"] = st.text_input("GRE Score (optional)", value=data["gre"], placeholder="326 (Q: 168, V: 158)")
-
-    cols_grad = st.columns(2)
-    with cols_grad[0]:
-        data["graduation_year"] = st.text_input("Expected / Actual Graduation Year", value=data["graduation_year"], placeholder="2026")
-    with cols_grad[1]:
-        data["achievements"] = st.text_input("Academic Honors (optional)", value=data["achievements"], placeholder="Dean's Honor List, Merit Scholar")
-
-    back, nxt = _nav_buttons(1)
-    if back:
-        st.session_state["counseling_step"] = 0
-        st.rerun()
-    if nxt:
-        st.session_state["counseling_step"] = 2
-        st.rerun()
-
-
-def render_step_experience() -> None:
-    data = st.session_state["counseling_data"]
-    degree = data.get("target_degree", "PhD")
-
-    if degree == "Undergraduate":
-        section_header("Extracurriculars & Career Interests", "Undergraduate profile signals.")
-        data["skills"] = st.text_area(
-            "Extracurricular Activities, Competitions & Clubs",
-            value=data.get("skills", ""),
-            placeholder="Robotics Club President, Math Olympiad, Volunteering...",
-            height=100,
-        )
-        data["research_interests"] = st.text_area(
-            "Academic Interests & Prospective Majors",
-            value=data.get("research_interests", ""),
-            placeholder="Interested in Computer Engineering and Renewable Energy...",
-            height=90,
-        )
-    elif degree == "Masters":
-        section_header("Technical Projects & Domain Focus", "Graduate application qualifications.")
-        data["projects"] = st.text_area(
-            "Key Technical Projects / Capstone",
-            value=data.get("projects", ""),
-            placeholder="Developed an automated distributed pipeline in Python & PyTorch...",
-            height=100,
-        )
-        data["skills"] = st.text_input(
-            "Technical Skills & Tooling",
-            value=data.get("skills", ""),
-            placeholder="Python, C++, PyTorch, Docker, Kubernetes, AWS",
-        )
-        data["research_domains"] = st.multiselect(
-            "Specialization Domains",
-            _RESEARCH_DOMAIN_OPTIONS,
-            default=[d for d in (data.get("research_domains") or []) if d in _RESEARCH_DOMAIN_OPTIONS],
-            placeholder="Select one or more specialization domains...",
-        )
-    else:  # PhD / Postdoc
-        section_header("Research Track Record & Faculty Alignment", "PhD candidate research qualifications.")
-        data["research_experience"] = st.text_area(
-            "Research Background & Lab Experience",
-            value=data.get("research_experience", ""),
-            placeholder="2 years as Graduate Research Assistant in Embedded Systems & AI Lab...",
-            height=110,
-        )
-        cols_phd = st.columns(2)
-        with cols_phd[0]:
-            data["publications"] = st.text_input("Publications / Preprints Count", value=data.get("publications", ""), placeholder="1 Conference paper (IEEE)")
-        with cols_phd[1]:
-            data["skills"] = st.text_input("Core Technical & Experimental Skills", value=data.get("skills", ""), placeholder="PyTorch, FPGA, Verilog, RISC-V, CUDA")
-
-        data["research_interests"] = st.text_area(
-            "Specific Research Focus (Thesis Ideas)",
-            value=data.get("research_interests", ""),
-            placeholder="Interested in Hardware-Efficient Transformer architectures and Edge AI security...",
-            height=85,
-        )
-        data["research_domains"] = st.multiselect(
-            "Primary Research Domains",
-            _RESEARCH_DOMAIN_OPTIONS,
-            default=[d for d in (data.get("research_domains") or []) if d in _RESEARCH_DOMAIN_OPTIONS],
-            placeholder="Select research fields...",
-        )
-        data["preferred_faculty"] = st.text_input(
-            "Target Faculty or Labs (optional)",
-            value=data.get("preferred_faculty", ""),
-            placeholder="Prof. Dawn Song (UC Berkeley), CyLab (CMU)",
-        )
-
-    back, nxt = _nav_buttons(2)
-    if back:
-        st.session_state["counseling_step"] = 1
-        st.rerun()
-    if nxt:
-        st.session_state["counseling_step"] = 3
-        st.rerun()
-
-
-def render_step_preferences() -> None:
-    data = st.session_state["counseling_data"]
-    section_header("Geographic & Funding Preferences", "Define your boundary constraints for the AI agents.")
-
-    data["target_countries"] = st.multiselect(
-        "Target Countries / Regions",
-        _COUNTRY_OPTIONS,
-        default=[c for c in (data["target_countries"] or []) if c in _COUNTRY_OPTIONS],
-        placeholder="Select target countries...",
-    )
-    cols = st.columns(2)
-    with cols[0]:
-        data["funding_requirement"] = st.selectbox(
-            "Funding Requirement",
-            _FUNDING_OPTIONS,
-            index=_FUNDING_OPTIONS.index(data["funding_requirement"]) if data["funding_requirement"] in _FUNDING_OPTIONS else 0,
-        )
-    with cols[1]:
-        data["target_intake"] = st.selectbox(
-            "Target Academic Intake",
-            _INTAKE_OPTIONS,
-            index=_INTAKE_OPTIONS.index(data["target_intake"]) if data["target_intake"] in _INTAKE_OPTIONS else 2,
-        )
-
-    data["university_type"] = st.selectbox(
-        "Preferred Institution Tier",
-        _UNIVERSITY_TYPE_OPTIONS,
-        index=_UNIVERSITY_TYPE_OPTIONS.index(data["university_type"]) if data["university_type"] in _UNIVERSITY_TYPE_OPTIONS else 0,
-    )
-
-    back, nxt = _nav_buttons(3)
-    if back:
-        st.session_state["counseling_step"] = 2
-        st.rerun()
-    if nxt:
-        if not data["target_countries"]:
-            st.warning("Please select at least one target country.", icon=":material/warning:")
-        else:
-            st.session_state["counseling_step"] = 4
-            st.rerun()
-
-
-def render_step_review() -> None:
-    data = st.session_state["counseling_data"]
-    section_header("Pre-Flight Profile Review", "Review your profile inputs before deploying the 9-agent workforce.")
-
-    c1, c2 = st.columns(2)
-    with c1:
-        with st.container(key="review-academic-box", border=True):
-            st.markdown("**Academic Identity**")
-            st.markdown(f"- Name: **{data['name']}**")
-            st.markdown(f"- Applying For: **{data['target_degree']}** in **{data['major']}**")
-            st.markdown(f"- Current Institution: {data['university']} ({data['country']})")
-            st.markdown(f"- GPA: **{data['cgpa']}** / {data['gpa_scale']}")
-            if data.get("ielts"):
-                st.markdown(f"- IELTS: **{data['ielts']}**")
-            if data.get("gre"):
-                st.markdown(f"- GRE: **{data['gre']}**")
-            if data.get("sat_act"):
-                st.markdown(f"- SAT/ACT: **{data['sat_act']}**")
-    with c2:
-        with st.container(key="review-pref-box", border=True):
-            st.markdown("**Preferences & Funding**")
-            st.markdown(f"- Target Countries: **{', '.join(data['target_countries'])}**")
-            st.markdown(f"- Funding: **{data['funding_requirement']}**")
-            st.markdown(f"- Target Intake: **{data['target_intake']}**")
-            st.markdown(f"- Institution Type: **{data['university_type']}**")
-
-    if data.get("research_domains") or data.get("research_interests") or data.get("projects"):
-        with st.container(key="review-research-box", border=True):
-            st.markdown("**Domain & Research Focus**")
-            if data.get("research_domains"):
-                st.markdown(f"- Specialization Domains: **{', '.join(data['research_domains'])}**")
-            if data.get("research_interests"):
-                st.markdown(f"- Focus Summary: {data['research_interests'][:250]}")
-            if data.get("publications"):
-                st.markdown(f"- Publications: **{data['publications']}**")
-
-    st.success("Ready to begin. Click **Start AI Analysis** to deploy the multi-agent team.", icon=":material/check_circle:")
-
-    back, nxt = _nav_buttons(4)
-    if back:
-        st.session_state["counseling_step"] = 3
-        st.rerun()
-    if nxt:
-        st.session_state["counseling_step"] = 5
-        st.rerun()
-
-
-def _compose_request(data: dict) -> str:
     parts = [
-        f"I am {data['name']}, an applicant targeting {data['target_degree']} programs in {data['major']} from {data['university']} ({data['country']}).",
+        f"I am {name}, applying for {target_degree} programs in {major}.",
+        f"My current background: {current_deg} from {uni}.",
     ]
-    if data.get("cgpa"):
-        parts.append(f"My cumulative GPA is {data['cgpa']} on a {data['gpa_scale']}.")
-    scores = []
-    if data.get("ielts"):
-        scores.append(f"IELTS {data['ielts']}")
-    if data.get("toefl"):
-        scores.append(f"TOEFL {data['toefl']}")
-    if data.get("gre"):
-        scores.append(f"GRE {data['gre']}")
-    if data.get("sat_act"):
-        scores.append(f"SAT/ACT {data['sat_act']}")
-    if scores:
-        parts.append(f"Test scores: {', '.join(scores)}.")
+    if gpa:
+        parts.append(f"My cumulative GPA is {gpa} on a 4.0 scale.")
 
-    if data.get("research_interests"):
-        parts.append(f"Research focus: {data['research_interests']}.")
-    if data.get("research_domains"):
-        parts.append(f"Preferred domains: {', '.join(data['research_domains'])}.")
-    if data.get("publications"):
-        parts.append(f"Publications: {data['publications']}.")
-    if data.get("research_experience"):
-        parts.append(f"Experience: {data['research_experience'][:250]}.")
-    if data.get("skills"):
-        parts.append(f"Technical skills: {data['skills']}.")
+    # Foundational schooling
+    ssc = profile.get("ssc_result")
+    hsc = profile.get("hsc_result")
+    if ssc:
+        parts.append(f"Secondary Schooling (SSC / O-Level): {ssc}.")
+    if hsc:
+        parts.append(f"Higher Secondary (HSC / A-Level): {hsc}.")
 
-    parts.append(f"Target countries: {', '.join(data['target_countries'])}.")
-    parts.append(f"Funding requirements: {data['funding_requirement']}.")
-    parts.append(f"Intake: {data['target_intake']}.")
+    # Standardized tests
+    sat = profile.get("sat_score")
+    gre = profile.get("gre_score") or profile.get("gre")
+    english = profile.get("english_score") or profile.get("ielts_score") or profile.get("ielts")
+
+    if sat and sat.upper() != "N/A":
+        parts.append(f"SAT Score: {sat}.")
+    if gre and gre.upper() != "N/A":
+        parts.append(f"GRE Score: {gre}.")
+    if english and english.upper() != "N/A":
+        parts.append(f"English Proficiency: {english}.")
+
+    # Research domains or extracurriculars
+    interests = profile.get("research_interests") or []
+    if interests:
+        parts.append(f"Specialization & research domains: {', '.join(interests) if isinstance(interests, list) else interests}.")
+
+    if profile.get("work_experience"):
+        exp_text = profile["work_experience"] if isinstance(profile["work_experience"], str) else ", ".join(profile["work_experience"])
+        parts.append(f"Experience / Extracurriculars: {exp_text[:300]}.")
+
+    if profile.get("projects"):
+        proj_text = profile["projects"] if isinstance(profile["projects"], str) else ", ".join(profile["projects"])
+        parts.append(f"Projects / Achievements: {proj_text[:250]}.")
+
+    if not is_ug and profile.get("publications"):
+        pub_text = profile["publications"] if isinstance(profile["publications"], str) else ", ".join(profile["publications"])
+        parts.append(f"Peer-Reviewed Publications: {pub_text}.")
+
+    if profile.get("has_msc") or profile.get("msc_university"):
+        msc_d = profile.get("msc_degree") or "MSc"
+        msc_u = profile.get("msc_university")
+        msc_g = profile.get("msc_gpa")
+        msc_t = profile.get("msc_thesis")
+        msc_str = f"Master's Degree: {msc_d} from {msc_u}"
+        if msc_g:
+            msc_str += f" (GPA: {msc_g}/4.0)"
+        parts.append(f"{msc_str}.")
+        if msc_t:
+            parts.append(f"Master's Thesis Focus: {msc_t}.")
+
+    if calib.get("special_focus"):
+        parts.append(f"Session focus and specific goals: {calib['special_focus']}.")
+
+    target_countries = calib.get("target_countries") or ["USA", "Canada"]
+    parts.append(f"Dream destination countries: {', '.join(target_countries)}.")
+    parts.append(f"Funding requirements: {calib.get('funding_requirement', 'Fully Funded')}.")
+    parts.append(f"Target intake: {calib.get('target_intake', 'Fall 2027')}.")
+    parts.append(
+        "Find matched universities, scholarships/assistantships, and professors based on my academic profile and demands. "
+        "For each match, return: University Name with official link, matched scholarship/assistantship, matched professor/faculty advisor, "
+        "eligibility criteria, required documents (transcripts, SOP, LORs, CV), and required minimum IELTS score."
+    )
     return " ".join(parts)
 
 
-def render_step_analysis() -> None:
-    data = st.session_state["counseling_data"]
-    profile_id = st.session_state.get("profile_id")
-    session_title = f"{data.get('target_degree', 'Graduate')} in {data.get('major', 'General')} · {', '.join(data.get('target_countries', ['Global']))}"
+def _render_verified_profile_banner(profile: dict) -> None:
+    student_name = profile.get("name") or "Student"
+    gpa = profile.get("gpa") or "N/A"
+    major = profile.get("field_of_study") or "General"
+    current_deg = profile.get("current_degree") or profile.get("academic_level") or "Undergraduate"
+    uni = profile.get("university") or "Institution"
 
-    # Header
-    _html(
-        f"""
-        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
-            <div style="font-size: 0.75rem; color: #6366F1; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Active AI Counseling Session</div>
-            <div style="font-size: 1.15rem; font-weight: 800; color: #0F172A; margin-top: 0.15rem;">{session_title}</div>
-        </div>
-        """
-    )
+    all_tags = (profile.get("skills") or []) + (profile.get("projects") or [])
+    def _get_tag(pfx: str) -> str | None:
+        for t in all_tags:
+            if t.lower().startswith(pfx.lower()):
+                parts = t.split(":", 1)
+                if len(parts) > 1 and parts[1].strip() and parts[1].strip().upper() != "N/A":
+                    return parts[1].strip()
+        return None
 
-    if st.session_state.get("counseling_result"):
-        result = st.session_state["counseling_result"]
-        render_workflow_status(result)
+    scores = []
+    ssc = profile.get("ssc_result") or _get_tag("SSC")
+    if ssc:
+        scores.append(f"SSC: {ssc}")
+    hsc = profile.get("hsc_result") or _get_tag("HSC")
+    if hsc:
+        scores.append(f"HSC: {hsc}")
+    sat = profile.get("sat_score") or _get_tag("SAT")
+    if sat and sat.upper() != "N/A":
+        scores.append(f"SAT: {sat}")
+    gre = profile.get("gre_score") or profile.get("gre") or _get_tag("GRE")
+    if gre and gre.upper() != "N/A":
+        scores.append(f"GRE: {gre}")
+    ielts = profile.get("ielts_score") or profile.get("ielts") or _get_tag("IELTS")
+    if ielts and ielts.upper() != "N/A":
+        scores.append(f"IELTS: {ielts}")
+    toefl = profile.get("toefl_score") or profile.get("toefl") or _get_tag("TOEFL")
+    if toefl and toefl.upper() != "N/A":
+        scores.append(f"TOEFL: {toefl}")
 
-        st.write("")
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            if st.button("✦ Start New Counseling Session", type="primary", use_container_width=True, icon=":material/refresh:"):
-                del st.session_state["counseling_result"]
-                del st.session_state["counseling_step"]
-                del st.session_state["counseling_data"]
-                st.rerun()
-        with col_r2:
-            st.page_link("pages/discover.py", label="Explore Full Opportunity Catalog →", icon=":material/school:")
-        return
+    score_text = f" · {' · '.join(scores)}" if scores else ""
 
-    if st.session_state.get("counseling_error"):
-        render_backend_error(st.session_state["counseling_error"], key="counseling-analysis")
-        if st.button("← Modify Profile & Retry", key="counseling-retry"):
-            del st.session_state["counseling_error"]
-            st.session_state["counseling_step"] = 4
-            st.rerun()
-        return
-
-    # --- Pre-Execution Multi-Agent Grid ---
-    agents_info = [
-        ("Profile Analyst", "👤", "Extracting academic strengths & test signals", "● Running"),
-        ("University Matcher", "🏫", "Discovering global programs aligned with criteria", "○ Waiting"),
-        ("Scholarship Engine", "💰", "Identifying assistantships & merit funding", "○ Waiting"),
-        ("Eligibility Verifier", "✅", "Validating minimum GPA & prerequisite criteria", "○ Waiting"),
-        ("Research Alignment", "🔬", "Semantic mapping of thesis & faculty research", "○ Waiting"),
-        ("Verification Agent", "🔍", "Grounding deadlines & tuition in official sources", "○ Waiting"),
-        ("Ranking Engine", "⭐", "Computing multi-criteria Reach/Target/Safe scores", "○ Waiting"),
-        ("SOP Generator", "📄", "Application document drafting checkpoint", "○ Waiting"),
-    ]
-
-    _html(
-        """
-        <div class="ep-supervisor-card">
-          <div class="ep-supervisor-icon">✦</div>
-          <div class="ep-supervisor-info">
-            <div class="ep-supervisor-name">Supervisor Agent (Active Orchestrator)</div>
-            <div class="ep-supervisor-desc">Coordinating your 8 specialist agents. Planning execution graph and evaluating data grounding.</div>
-          </div>
-        </div>
-        """
-    )
-
-    cols = st.columns(2)
-    for i, (name, icon, desc, status_text) in enumerate(agents_info):
-        with cols[i % 2]:
-            _html(
-                f"""
-                <div class="ep-agent-status-card {'running' if i == 0 else 'waiting'}">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                      <span style="font-size: 1.1rem;">{icon}</span>
-                      <strong style="font-size: 0.92rem; color: #0F172A;">{name}</strong>
-                    </div>
-                    <span class="ep-badge {'indigo' if i == 0 else 'neutral'}" style="font-size: 0.68rem;">{status_text}</span>
-                  </div>
-                  <div style="font-size: 0.8rem; color: #64748B;">{desc}</div>
+    col_meta, col_btn = st.columns([3, 1])
+    with col_meta:
+        _html(
+            f"""
+            <div style="background: linear-gradient(135deg, #EEF2FF 0%, #F8FAFC 100%); border: 1px solid #C7D2FE; border-radius: 12px; padding: 0.85rem 1.25rem;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="font-size: 0.72rem; color: #4F46E5; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Synchronized Academic Profile</div>
+                    <span class="ep-badge success" style="font-size: 0.72rem;">Verified Record ✓</span>
                 </div>
-                """
+                <div style="font-size: 1rem; font-weight: 800; color: #0F172A; margin-top: 0.2rem;">
+                    {student_name} · GPA: {gpa}/4.0 · {major} ({current_deg})
+                </div>
+                <div style="font-size: 0.82rem; color: #64748B; margin-top: 0.15rem;">
+                    Institution: {uni}{score_text}
+                </div>
+                {f'<div style="font-size: 0.82rem; color: #4338CA; font-weight: 600; margin-top: 0.2rem;">🎓 Master\'s: {profile.get("msc_degree", "MSc")} · {profile.get("msc_university")} (GPA: {profile.get("msc_gpa")}/4.0)</div>' if profile.get("msc_university") else ''}
+            </div>
+            """
+        )
+    with col_btn:
+        st.write("")
+        st.page_link("pages/profile.py", label="Edit Profile Credentials ↗", icon=":material/edit:", use_container_width=True)
+
+
+def _render_strategy_calibrator(profile: dict, profile_id: str | None) -> None:
+    section_header(
+        "Strategy Calibration",
+        "Your academic record is already loaded. Calibrate your application goals below and deploy the workforce.",
+    )
+
+    # Pre-populate defaults from profile where available
+    pref_countries = profile.get("target_countries") or ["USA", "Canada"]
+    pref_degree = profile.get("target_degree") or "PhD"
+    deg_idx = _DEGREE_LEVELS.index(pref_degree) if pref_degree in _DEGREE_LEVELS else 2
+    pref_funding = profile.get("preferred_funding") or "Fully Funded (RA/TA/Fellowship)"
+    fund_idx = _FUNDING_OPTIONS.index(pref_funding) if pref_funding in _FUNDING_OPTIONS else 0
+
+    with st.container(key="strategy-calibrator-card"):
+        col1, col2 = st.columns(2)
+        with col1:
+            target_degree = st.selectbox("Target Degree Level", _DEGREE_LEVELS, index=deg_idx, help="Graduate or undergraduate program level you are targeting.")
+            subject_domain = st.text_input("Subject / Domain Choice *", value=profile.get("field_of_study") or "Computer Science & Engineering", help="Academic discipline or research domain for university matching.")
+            target_intake = st.selectbox("Target Intake Term", _INTAKE_OPTIONS, index=2, help="Primary matriculation semester.")
+        with col2:
+            target_countries = st.multiselect(
+                "Dream Destination Countries *",
+                _COUNTRY_OPTIONS,
+                default=[c for c in pref_countries if c in _COUNTRY_OPTIONS] or ["USA", "Canada"],
+                help="Countries where your AI team should search for accredited programs.",
+            )
+            funding_requirement = st.selectbox(
+                "Funding Requirement",
+                _FUNDING_OPTIONS,
+                index=fund_idx,
+                help="Assistantships (RA/TA), university fellowships, or tuition waivers.",
             )
 
-    # --- Run Workflow ---
-    request_text = _compose_request(data)
+        special_focus = st.text_area(
+            "Special Research Focus / Session Objectives (Optional)",
+            value="",
+            placeholder="e.g. Focus on labs doing Computer Vision & Multimodal Reasoning with active NSF grants, or emphasize DAAD doctoral funding.",
+            help="Additional guidance for the supervisor and specialist agents.",
+        )
+
+        st.write("")
+        col_btn1, col_btn2 = st.columns([1.5, 1])
+        with col_btn1:
+            deploy_clicked = st.button(
+                "✦ Deploy AI Workforce on My Profile",
+                type="primary",
+                use_container_width=True,
+                icon=":material/auto_awesome:",
+                key="btn-deploy-workforce",
+            )
+        with col_btn2:
+            st.caption("Coordinates 7 specialist agents via OpenRouter with verified source citations.")
+
+    if deploy_clicked:
+        calib_data = {
+            "target_degree": target_degree,
+            "subject_domain": subject_domain.strip(),
+            "target_intake": target_intake,
+            "target_countries": target_countries,
+            "funding_requirement": funding_requirement,
+            "special_focus": special_focus.strip(),
+        }
+        _execute_counseling_workflow(profile, profile_id, calib_data)
+
+
+def _execute_counseling_workflow(profile: dict, profile_id: str | None, calib_data: dict) -> None:
+    request_text = _compose_request(profile, calib_data)
     payload = {
         "user_request": request_text,
         "workflow_type": "opportunity_discovery",
@@ -485,12 +247,20 @@ def render_step_analysis() -> None:
     if profile_id:
         payload["student_profile_id"] = profile_id
 
+    agents_info = [
+        ("Profile Analyst", "👤", "Extracting academic strengths & test signals"),
+        ("University Matcher", "🏫", "Discovering global programs aligned with criteria"),
+        ("Scholarship Engine", "💰", "Identifying assistantships & merit funding"),
+        ("Eligibility Verifier", "✅", "Validating minimum GPA & prerequisite criteria"),
+        ("Research Alignment", "🔬", "Semantic mapping of thesis & faculty research"),
+        ("Verification Agent", "🔍", "Grounding deadlines & tuition in official sources"),
+        ("Ranking Engine", "⭐", "Computing multi-criteria Reach/Target/Safe scores"),
+    ]
+
     with st.status("Deploying AI workforce on your application...", expanded=True) as status:
-        st.write("👤 Profile Analyst: Evaluating academic profile and language scores...")
-        st.write("🏫 University Matcher: Querying university catalog across target countries...")
-        st.write("💰 Scholarship Engine: Filtering graduate assistantships and fellowships...")
-        st.write("🔬 Research Matcher: Aligning domain interests with faculty labs...")
-        st.write("⭐ Ranking Engine: Sorting verified opportunities into Reach, Target, and Safe tiers...")
+        for name, icon, desc in agents_info:
+            st.write(f"{icon} **{name}**: {desc}...")
+
         try:
             result = analyze_counseling(payload)
         except BackendError as error:
@@ -503,7 +273,6 @@ def render_step_analysis() -> None:
     st.session_state["counseling_result"] = result
     st.session_state["current_workflow_id"] = result.get("workflow_id")
     st.session_state["workflow_result"] = result
-    from api.client import list_opportunities_cached
     list_opportunities_cached.clear()
     st.rerun()
 
@@ -512,7 +281,7 @@ def render() -> None:
     profile_id = st.session_state.get("profile_id")
     profile = st.session_state.get("profile")
 
-    # Gate: Student must complete their previous academic background profile first
+    # Gate: Student must set up baseline academic profile first
     if not profile_id or not profile or not profile.get("gpa") or not profile.get("field_of_study"):
         render_page_header(
             "AI Counseling Session",
@@ -520,8 +289,8 @@ def render() -> None:
             eyebrow="Profile Required",
         )
         render_empty_state(
-            "Complete Your Academic Background First",
-            "EduPath AI requires your existing academic records (GPA, major/field of study, completed degree, and skills) to match you with appropriate future programs, scholarships, and faculty advisors.",
+            "Complete Your Academic Profile First",
+            "EduPath AI requires your academic records (GPA, major, degree, and skills) in your profile to calibrate matched programs.",
             icon="🧑‍🎓",
             cta_label="Set Up Academic Profile Now →",
             cta_page="pages/profile.py",
@@ -529,48 +298,75 @@ def render() -> None:
         )
         return
 
-    _init_wizard()
-    step = st.session_state.get("counseling_step", 0)
+    # Check if a workflow ID is set (e.g. from Dashboard "Open ->") and hydrate results
+    active_wf_id = st.session_state.get("current_workflow_id")
+    if active_wf_id and not st.session_state.get("counseling_result"):
+        try:
+            wf_data = get_counseling_session(active_wf_id)
+            if wf_data and (wf_data.get("ranked_opportunities") or wf_data.get("agent_results")):
+                st.session_state["counseling_result"] = wf_data
+                st.session_state["workflow_result"] = wf_data
+        except Exception:
+            pass
 
     render_page_header(
-        "New AI Counseling Session",
-        "Guided multi-agent intake tailored to your academic background.",
+        "AI Counseling & Opportunities Hub",
+        "Synchronized admissions matching, scholarship discovery, professor alignment, and strategy planning.",
         eyebrow="AI Counseling",
     )
 
-    # Connected Student Profile Summary Banner
-    student_name = profile.get("name") or "Student"
-    gpa = profile.get("gpa") or "N/A"
-    major = profile.get("field_of_study") or "General"
-    current_deg = profile.get("current_degree") or profile.get("academic_level") or "Undergraduate"
-    _html(
-        f"""
-        <div style="background: linear-gradient(135deg, #EEF2FF 0%, #F8FAFC 100%); border: 1px solid #C7D2FE; border-radius: 12px; padding: 0.85rem 1.25rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <div style="font-size: 0.72rem; color: #4F46E5; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Student Academic Background</div>
-                <div style="font-size: 0.95rem; font-weight: 700; color: #0F172A; margin-top: 0.15rem;">{student_name} · GPA: {gpa}/4.0 · Major: {major} · Background: {current_deg}</div>
-            </div>
-            <span class="ep-badge success" style="font-size: 0.72rem;">Academic Record Verified ✓</span>
-        </div>
-        """
-    )
-
-    _render_step_indicator(step)
+    _render_verified_profile_banner(profile)
     st.write("")
 
-    with st.container(key="counseling-wizard-content", border=False):
-        if step == 0:
-            render_step_profile()
-        elif step == 1:
-            render_step_academic()
-        elif step == 2:
-            render_step_experience()
-        elif step == 3:
-            render_step_preferences()
-        elif step == 4:
-            render_step_review()
-        elif step == 5:
-            render_step_analysis()
+    # --- Mode 1: Display Completed Strategy Report ---
+    if st.session_state.get("counseling_result"):
+        result = st.session_state["counseling_result"]
+        render_workflow_status(result)
+
+        st.write("")
+        col_r1, col_r2 = st.columns(2)
+        with col_r1:
+            if st.button("✦ Start New Counseling Strategy", type="primary", use_container_width=True, icon=":material/refresh:"):
+                st.session_state.pop("counseling_result", None)
+                st.session_state.pop("counseling_error", None)
+                st.session_state.pop("current_workflow_id", None)
+                st.rerun()
+        with col_r2:
+            st.page_link("pages/tracker.py", label="View in Application Tracker →", icon=":material/checklist:")
+        return
+
+    # --- Mode 2: Error Recovery or Background Completion ---
+    if st.session_state.get("counseling_error"):
+        if profile_id:
+            try:
+                workflows = list_workflows(profile_id)
+                if workflows and workflows[0].get("status") in {"completed", "awaiting_approval"}:
+                    latest_wf = workflows[0]
+                    col_info, col_btn = st.columns([2, 1])
+                    with col_info:
+                        st.info(
+                            f"A counseling session completed in the background ({latest_wf.get('id', '')[:8]}).",
+                            icon=":material/check_circle:",
+                        )
+                    with col_btn:
+                        if st.button("Load Completed Analysis →", type="primary", use_container_width=True, key="load-bg-counseling"):
+                            res = get_counseling_session(latest_wf["id"])
+                            st.session_state["counseling_result"] = res
+                            st.session_state["workflow_result"] = res
+                            st.session_state["current_workflow_id"] = latest_wf["id"]
+                            st.session_state.pop("counseling_error", None)
+                            st.rerun()
+            except Exception:
+                pass
+
+        retried = render_backend_error(st.session_state["counseling_error"], key="counseling-analysis")
+        if retried:
+            st.session_state.pop("counseling_error", None)
+            st.rerun()
+        return
+
+    # --- Mode 3: Strategy Calibrator (Frictionless Intake) ---
+    _render_strategy_calibrator(profile, profile_id)
 
 
 render()

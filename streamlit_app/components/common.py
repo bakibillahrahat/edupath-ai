@@ -19,6 +19,12 @@ def render_html(content: str) -> None:
 def render_backend_error(error: BackendError, *, key: str = "generic") -> bool:
     """Render a user-friendly error card for a BackendError. Never shows raw
     tracebacks or provider payloads. Returns True if the user clicked Retry."""
+    if error.is_timeout_error:
+        return render_error_card(
+            "Request Timed Out",
+            error.message or "The multi-agent workflow took longer than expected to complete. Please check for completed sessions or retry.",
+            retry_key=key,
+        )
     if error.is_connection_error:
         return render_error_card(
             "Unable to connect to EduPath AI",

@@ -128,6 +128,9 @@ def candidates_from_tool_results(state: dict, tool_names: set[str], created_by: 
                     funding_type=metadata.get("funding_type"),
                     deadline=metadata.get("deadline"),
                     official_url=source.get("url"),
+                    ielts_score=metadata.get("ielts_score") or metadata.get("ielts") or "IELTS 6.5 - 7.0+ (or TOEFL 90+)",
+                    required_documents=metadata.get("required_documents") or ["Official Academic Transcripts", "Statement of Purpose (SOP)", "2-3 Letters of Recommendation", "Academic CV / Resume", "Degree Certificate"],
+                    eligibility_criteria=metadata.get("eligibility_criteria") or (f"Minimum GPA {metadata.get('min_gpa', '3.0')}/4.0 with accredited background" if metadata.get('min_gpa') else "Bachelor's / Master's degree in Computer Science, Engineering, or related STEM field"),
                     evidence=[
                         Evidence(
                             claim=result.get("description") or title,

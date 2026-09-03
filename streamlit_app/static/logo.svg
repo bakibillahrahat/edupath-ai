@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 170 38" width="170" height="38">
+  <defs>
+    <linearGradient id="ep-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#8B5CF6"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="3" width="32" height="32" rx="9" fill="url(#ep-grad)"/>
+  <text x="16" y="25" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="17" font-weight="800" fill="#FFFFFF" text-anchor="middle">E</text>
+  <text x="42" y="22" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="16" font-weight="800" fill="#FFFFFF" letter-spacing="-0.02em">EduPath AI</text>
+  <text x="42" y="32" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif" font-size="8.5" font-weight="700" fill="#818CF8" letter-spacing="0.08em">AI WORKFORCE</text>
+</svg>

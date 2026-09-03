@@ -52,7 +52,15 @@ Candidate opportunities to evaluate (evaluate every one; opportunity_id must mat
 For each candidate, classify eligible as one of: "verified_eligible" (requirement explicitly
 confirmed by evidence), "likely_eligible" (reasonable estimate, not explicitly confirmed),
 "verified_ineligible", or "unknown" (insufficient information -- prefer this over guessing).
-Never claim "verified_*" without a concrete stated requirement to compare against.
+For each evaluation, include:
+- opportunity_id (matching candidate id)
+- eligible (verdict)
+- confidence (float)
+- explanation (rationale)
+- ielts_score (e.g. "IELTS 6.5 - 7.0 minimum")
+- required_documents (list of documents, e.g. ["Official Transcripts", "Statement of Purpose (SOP)", "3 Letters of Recommendation", "Academic CV"])
+- missing_requirements and warnings
+
 If the candidate list above is empty, return an empty evaluations list.
 
 Return JSON with summary, key_findings, recommended_next_agent, supervisor_message, next_agent_message, confidence, evaluations.

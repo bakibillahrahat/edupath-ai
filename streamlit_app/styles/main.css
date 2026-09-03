@@ -244,6 +244,126 @@ section[data-testid="stSidebar"] button:hover {
     color: #F87171 !important;
 }
 
+/* Unified Sidebar User & Workspace Menu Button */
+section[data-testid="stSidebar"] div[data-testid="stPopover"] {
+    width: 100% !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stPopover"] > button {
+    background: #111C35 !important;
+    border: 1px solid #1E293B !important;
+    border-radius: 12px !important;
+    color: #F1F5F9 !important;
+    font-size: 0.85rem !important;
+    font-weight: 700 !important;
+    padding: 0.65rem 0.85rem !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 0.65rem !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+    margin-top: 0 !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stPopover"] > button:hover {
+    background: #162444 !important;
+    border-color: #6366F1 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3) !important;
+    transform: translateY(-1px) !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stPopover"] > button p {
+    font-size: 0.84rem !important;
+    font-weight: 700 !important;
+    color: #F1F5F9 !important;
+    margin: 0 !important;
+}
+
+section[data-testid="stSidebar"] div[data-testid="stPopover"] > button span[data-testid="stIconMaterial"] {
+    color: #818CF8 !important;
+}
+
+/* Popover Dropdown Container (Dark Theme Cohesion) */
+div[data-testid="stPopoverBody"] {
+    background: #0B1220 !important;
+    border: 1px solid #1E293B !important;
+    border-radius: 14px !important;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(99, 102, 241, 0.25) !important;
+    padding: 1rem !important;
+    color: #F1F5F9 !important;
+}
+
+.ep-menu-section-header {
+    font-size: 0.7rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+    color: #64748B !important;
+    margin: 0.65rem 0 0.4rem 0 !important;
+}
+
+div[data-testid="stPopoverBody"] a {
+    color: #E2E8F0 !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid #1E293B !important;
+    border-radius: 9px !important;
+    padding: 0.45rem 0.75rem !important;
+    margin-bottom: 0.35rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    font-size: 0.84rem !important;
+    font-weight: 600 !important;
+    transition: all 0.15s ease !important;
+}
+
+div[data-testid="stPopoverBody"] a:hover {
+    color: #FFFFFF !important;
+    background: rgba(99, 102, 241, 0.22) !important;
+    border-color: #6366F1 !important;
+    transform: translateX(2px) !important;
+}
+
+div[data-testid="stPopoverBody"] hr {
+    border-color: #1E293B !important;
+    margin: 0.75rem 0 !important;
+}
+
+div[data-testid="stPopoverBody"] button {
+    background: rgba(239, 68, 68, 0.1) !important;
+    border: 1px solid rgba(239, 68, 68, 0.35) !important;
+    color: #F87171 !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    width: 100% !important;
+    border-radius: 9px !important;
+    padding: 0.45rem 0.75rem !important;
+    transition: all 0.18s ease !important;
+}
+
+div[data-testid="stPopoverBody"] button:hover {
+    background: rgba(239, 68, 68, 0.22) !important;
+    border-color: #EF4444 !important;
+    color: #FFFFFF !important;
+}
+
+/* Sidebar Top Logo Header Fix */
+div[data-testid="stSidebarHeader"] {
+    padding-top: 1rem !important;
+    padding-bottom: 0.5rem !important;
+    padding-left: 0.75rem !important;
+}
+
+div[data-testid="stSidebarHeader"] img[data-testid="stLogo"],
+img[data-testid="stLogo"] {
+    height: 36px !important;
+    width: auto !important;
+    object-fit: contain !important;
+}
+
 .ep-sidebar-status-pill {
     display: flex;
     align-items: center;
@@ -3503,4 +3623,473 @@ div[class*="st-key-tracker-card-"] {
 .ep-badge.warning { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
 .ep-badge.danger { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
 .ep-badge.neutral { background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0; }
+
+/* ==========================================================================
+   Modern Command Center Design Tokens & Components (Redesign)
+   ========================================================================== */
+
+.ep-command-hero {
+    background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 60%, #312E81 100%);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem;
+    color: #FFFFFF;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.3), 0 8px 10px -6px rgba(99, 102, 241, 0.2);
+    margin-bottom: 1.5rem;
+}
+
+.ep-command-hero::after {
+    content: "";
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(129, 140, 248, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.ep-hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.ep-hero-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.ep-hero-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.ep-hero-greeting {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #FFFFFF;
+    line-height: 1.2;
+}
+
+.ep-hero-sub {
+    font-size: 0.85rem;
+    color: #94A3B8;
+    margin-top: 0.2rem;
+}
+
+.ep-live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    background: rgba(99, 102, 241, 0.18);
+    border: 1px solid rgba(129, 140, 248, 0.35);
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #C7D2FE;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.ep-live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10B981;
+    box-shadow: 0 0 8px #10B981;
+}
+
+.ep-hero-credentials {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ep-cred-chip {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.25rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #E2E8F0;
+}
+
+/* 3-Metric Pulse Row */
+.ep-pulse-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ep-pulse-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
+.ep-pulse-card.accent-indigo { border-top: 3px solid #6366F1; }
+.ep-pulse-card.accent-purple { border-top: 3px solid #8B5CF6; }
+.ep-pulse-card.accent-emerald { border-top: 3px solid #10B981; }
+
+.ep-pulse-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.ep-pulse-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748B;
+}
+
+.ep-pulse-value {
+    font-size: 1.85rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #0F172A;
+    line-height: 1.1;
+}
+
+.ep-pulse-caption {
+    font-size: 0.8rem;
+    color: #64748B;
+    margin-top: 0.35rem;
+}
+
+/* Executive Briefing Card */
+.ep-briefing-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 1.35rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.ep-briefing-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.ep-briefing-school {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.01em;
+}
+
+.ep-briefing-meta {
+    font-size: 0.85rem;
+    color: #64748B;
+    margin-top: 0.15rem;
+}
+
+.ep-tier-distribution {
+    margin: 1rem 0;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+}
+
+.ep-tier-bar-wrapper {
+    height: 8px;
+    background: #E2E8F0;
+    border-radius: 999px;
+    overflow: hidden;
+    display: flex;
+    margin: 0.5rem 0;
+}
+
+.ep-tier-segment-reach { background: #F59E0B; }
+.ep-tier-segment-target { background: #6366F1; }
+.ep-tier-segment-safe { background: #10B981; }
+
+.ep-tier-legend {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+/* Deadline Timeline Cards */
+.ep-deadline-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.6rem;
+    transition: all 0.15s ease;
+}
+
+.ep-deadline-row:hover {
+    border-color: #C7D2FE;
+    background: #F8FAFC;
+}
+
+.ep-deadline-school {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #0F172A;
+}
+
+.ep-deadline-sub {
+    font-size: 0.75rem;
+    color: #64748B;
+}
+
+.ep-countdown-tag {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+}
+
+.ep-countdown-tag.urgent { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.ep-countdown-tag.normal { background: #EEF2FF; color: #4F46E5; border: 1px solid #C7D2FE; }
+
+/* 1-Step Strategy Calibrator */
+.ep-calibrator-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+/* ==========================================================================
+   5-Stage Guided Student Admissions Journey Tracker
+   ========================================================================== */
+
+.ep-journey-wrapper {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+    padding: 1.35rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+.ep-journey-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.ep-journey-title {
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #0F172A;
+    letter-spacing: -0.01em;
+}
+
+.ep-journey-sub {
+    font-size: 0.82rem;
+    color: #64748B;
+    margin-top: 0.1rem;
+}
+
+.ep-journey-progress-track {
+    height: 6px;
+    background: #E2E8F0;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 1.15rem;
+}
+
+.ep-journey-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #10B981 0%, #6366F1 50%, #8B5CF6 100%);
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}
+
+.ep-journey-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+    gap: 0.75rem;
+}
+
+.ep-journey-card {
+    border-radius: 12px;
+    padding: 0.95rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.ep-journey-card.completed {
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+}
+
+.ep-journey-card.active {
+    background: #EEF2FF;
+    border: 1.5px solid #6366F1;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.18);
+}
+
+.ep-journey-card.pending {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    opacity: 0.9;
+}
+
+.ep-step-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.45rem;
+}
+
+.ep-step-number {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.ep-step-number.completed {
+    background: #10B981;
+    color: #FFFFFF;
+}
+
+.ep-step-number.active {
+    background: #6366F1;
+    color: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.ep-step-number.pending {
+    background: #E2E8F0;
+    color: #64748B;
+}
+
+.ep-step-title {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #0F172A;
+    line-height: 1.25;
+    margin-bottom: 0.25rem;
+}
+
+.ep-step-desc {
+    font-size: 0.74rem;
+    color: #64748B;
+    line-height: 1.35;
+    margin-bottom: 0.65rem;
+}
+
+.ep-step-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    margin-top: auto;
+}
+
+.ep-step-status-chip.completed {
+    background: #DCFCE7;
+    color: #15803D;
+    border: 1px solid #86EFAC;
+}
+
+.ep-step-status-chip.active {
+    background: #E0E7FF;
+    color: #4338CA;
+    border: 1px solid #A5B4FC;
+}
+
+.ep-step-status-chip.pending {
+    background: #F1F5F9;
+    color: #64748B;
+    border: 1px solid #CBD5E1;
+}
+
+/* Recommended Next Action Banner */
+.ep-next-action-card {
+    background: linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%);
+    border: 1px solid rgba(129, 140, 248, 0.3);
+    border-radius: 14px;
+    padding: 1.15rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    color: #FFFFFF;
+    box-shadow: 0 4px 16px rgba(49, 46, 129, 0.25);
+}
+
+.ep-next-action-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #A5B4FC;
+    margin-bottom: 0.2rem;
+}
+
+.ep-next-action-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #FFFFFF;
+    letter-spacing: -0.01em;
+}
+
+.ep-next-action-desc {
+    font-size: 0.82rem;
+    color: #C7D2FE;
+    margin-top: 0.15rem;
+}
 

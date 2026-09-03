@@ -118,9 +118,14 @@ def _compose_request(base_request: str, *, degree: str, funding: str, deadline_w
     if research_areas:
         preferences.append(f"Research areas: {', '.join(research_areas)}")
 
+    list_spec = (
+        " For each matched opportunity, discover and present in a structured list format: "
+        "University Name & Official Link, Eligibility Criteria, Required Documents (transcripts, SOP, LORs, CV), "
+        "and Minimum IELTS / English Proficiency score."
+    )
     if not preferences:
-        return base_request
-    return f"{base_request}\n\nAdditional preferences -- {'; '.join(preferences)}."
+        return f"{base_request}{list_spec}"
+    return f"{base_request}\n\nAdditional preferences -- {'; '.join(preferences)}.{list_spec}"
 
 
 def _run_workflow(profile_id: str, user_request: str) -> None:

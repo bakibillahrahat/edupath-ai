@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from functools import lru_cache
 from typing import Any, TypeVar
 
@@ -25,6 +26,11 @@ T = TypeVar("T", bound=BaseModel)
 _logger = get_logger(component="llm")
 
 
+class TransientOpenRouterError(LLMError):
+    """Raised for retryable OpenRouter payload errors like 504 abort, 502/503 upstream, or rate limits."""
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Error classification (OpenRouter is a REST API fronting many underlying
 # models, so errors arrive as plain HTTP status codes rather than the
@@ -45,8 +51,10 @@ def _is_non_retryable_client_error(exc: BaseException) -> bool:
 
 
 def _is_retryable(exc: BaseException) -> bool:
-    """Tenacity predicate: retry transient 5xx errors and 429 rate limit bursts
+    """Tenacity predicate: retry transient 5xx errors, payload aborts, and 429 rate limit bursts
     with backoff."""
+    if isinstance(exc, TransientOpenRouterError):
+        return True
     if _is_non_retryable_client_error(exc):
         return False
     if _is_quota_error(exc):
@@ -202,57 +210,81 @@ class OpenRouterProvider:
             f"matching this JSON Schema exactly:\n{json.dumps(response_model.model_json_schema())}"
         ).strip()
 
-        try:
-            body = self._chat_completion(
-                model_name,
-                prompt,
-                temperature=temperature,
-                system_instruction=schema_instruction,
-                response_format={"type": "json_object"},
-                context=ctx,
-                attempt_counter=attempt_counter,
-            )
-        except LLMError:
-            raise
-        except httpx.HTTPStatusError as exc:
-            if _is_quota_error(exc):
-                _logger.warning("openrouter_call_quota_exhausted", model=model_name, **ctx.fields())
-                raise _build_quota_error(exc, provider="openrouter", model=model_name) from exc
-            _logger.warning("openrouter_call_failed", model=model_name, error_type=exc.__class__.__name__, **ctx.fields())
-            raise LLMError(
-                f"OpenRouter structured request failed for {response_model.__name__}: {_extract_error_message(exc.response)}"
-            ) from exc
-        except httpx.HTTPError as exc:
-            _logger.warning("openrouter_call_failed", model=model_name, error_type=exc.__class__.__name__, **ctx.fields())
-            raise LLMError(
-                f"OpenRouter structured request failed for {response_model.__name__}: {exc}"
-            ) from exc
+        last_error = None
+        for attempt in range(1, 4):
+            try:
+                body = self._chat_completion(
+                    model_name,
+                    prompt,
+                    temperature=temperature,
+                    system_instruction=schema_instruction,
+                    response_format={"type": "json_object"},
+                    context=ctx,
+                    attempt_counter=attempt_counter,
+                )
+            except LLMError:
+                raise
+            except httpx.HTTPStatusError as exc:
+                if _is_quota_error(exc):
+                    _logger.warning("openrouter_call_quota_exhausted", model=model_name, **ctx.fields())
+                    raise _build_quota_error(exc, provider="openrouter", model=model_name) from exc
+                _logger.warning("openrouter_call_failed", model=model_name, error_type=exc.__class__.__name__, **ctx.fields())
+                raise LLMError(
+                    f"OpenRouter structured request failed for {response_model.__name__}: {_extract_error_message(exc.response)}"
+                ) from exc
+            except httpx.HTTPError as exc:
+                _logger.warning("openrouter_call_failed", model=model_name, error_type=exc.__class__.__name__, **ctx.fields())
+                raise LLMError(
+                    f"OpenRouter structured request failed for {response_model.__name__}: {exc}"
+                ) from exc
 
-        raw_text, usage = self._parse_completion(body, model_name)
-        if not raw_text.strip():
-            raise LLMError(f"OpenRouter returned an empty response for {response_model.__name__}.")
+            raw_text, usage = self._parse_completion(body, model_name)
+            if not raw_text.strip():
+                if attempt < 3:
+                    continue
+                raise LLMError(f"OpenRouter returned an empty response for {response_model.__name__}.")
 
-        result = LLMResult(text=raw_text, usage=usage)
-        _logger.info("openrouter_call_success", model=model_name, total_tokens=usage.total_tokens, **ctx.fields())
+            result = LLMResult(text=raw_text, usage=usage)
+            _logger.info("openrouter_call_success", model=model_name, total_tokens=usage.total_tokens, **ctx.fields())
 
-        text_to_parse = self._strip_code_fence(raw_text)
+            text_to_parse = self._strip_code_fence(raw_text)
 
-        try:
-            return response_model.model_validate_json(text_to_parse), result
-        except json.JSONDecodeError as exc:
-            error_msg = f"Invalid JSON response from OpenRouter for {response_model.__name__}. "
-            error_msg += f"Response: ```{text_to_parse[:500]}...```"
-            raise LLMError(error_msg) from exc
-        except ValidationError as exc:
-            is_json_error = any((err.get("type") or "").startswith("json_") for err in exc.errors())
-            if is_json_error:
-                error_msg = f"Invalid JSON response from OpenRouter for {response_model.__name__}. "
-                error_msg += f"Response: ```{text_to_parse[:500]}...```"
-                raise LLMError(error_msg) from exc
-            error_msg = f"OpenRouter response failed Pydantic validation for {response_model.__name__}. "
-            error_msg += f"Response: ```{text_to_parse[:500]}...```. "
-            error_msg += f"Validation Error: {exc}"
-            raise LLMError(error_msg) from exc
+            try:
+                return response_model.model_validate_json(text_to_parse), result
+            except json.JSONDecodeError as exc:
+                last_error = exc
+                _logger.warning(
+                    "openrouter_structured_parse_retry",
+                    attempt=attempt,
+                    model=model_name,
+                    error=str(exc)[:150],
+                    **ctx.fields(),
+                )
+                if attempt == 3:
+                    error_msg = f"Invalid JSON response from OpenRouter for {response_model.__name__}. "
+                    error_msg += f"Response: ```{text_to_parse[:500]}...```"
+                    raise LLMError(error_msg) from exc
+            except ValidationError as exc:
+                last_error = exc
+                is_json_error = any((err.get("type") or "").startswith("json_") for err in exc.errors())
+                _logger.warning(
+                    "openrouter_structured_parse_retry",
+                    attempt=attempt,
+                    model=model_name,
+                    error=str(exc)[:150],
+                    **ctx.fields(),
+                )
+                if attempt == 3:
+                    if is_json_error:
+                        error_msg = f"Invalid JSON response from OpenRouter for {response_model.__name__}. "
+                        error_msg += f"Response: ```{text_to_parse[:500]}...```"
+                        raise LLMError(error_msg) from exc
+                    error_msg = f"OpenRouter response failed Pydantic validation for {response_model.__name__}. "
+                    error_msg += f"Response: ```{text_to_parse[:500]}...```. "
+                    error_msg += f"Validation Error: {exc}"
+                    raise LLMError(error_msg) from exc
+
+        raise LLMError(f"Failed to generate structured response for {response_model.__name__}: {last_error}")
 
     @retry(
         retry=retry_if_exception(_is_retryable),
@@ -287,22 +319,49 @@ class OpenRouterProvider:
             "model": model_name,
             "messages": messages,
             "temperature": temperature if temperature is not None else settings.openrouter_temperature,
+            "max_tokens": 4096,
         }
         if response_format is not None:
             payload["response_format"] = response_format
 
         response = self.client.post("/chat/completions", json=payload)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+
+        # Handle OpenRouter 200 responses containing an error block (e.g. 504 abort / timeout)
+        if isinstance(data, dict) and "error" in data and not data.get("choices"):
+            err = data["error"]
+            err_code = err.get("code") if isinstance(err, dict) else None
+            err_msg = err.get("message", "") if isinstance(err, dict) else str(err)
+            if err_code in {504, 503, 502, 500, 429} or "aborted" in err_msg.lower() or "timeout" in err_msg.lower():
+                _logger.warning("openrouter_transient_payload_error", code=err_code, message=err_msg, model=model_name)
+                raise TransientOpenRouterError(f"OpenRouter transient error ({err_code}): {err_msg}")
+            raise LLMError(f"OpenRouter returned an error: {err_msg}")
+
+        if not data.get("choices"):
+            raise TransientOpenRouterError(f"OpenRouter response for {model_name} contained no choices: {data}")
+
+        return data
 
     @staticmethod
     def _strip_code_fence(text: str) -> str:
         text_to_parse = text.strip()
-        if text_to_parse.startswith("```json"):
-            text_to_parse = text_to_parse.removeprefix("```json").removesuffix("```")
-        elif text_to_parse.startswith("```"):
-            text_to_parse = text_to_parse.removeprefix("```").removesuffix("```")
-        return text_to_parse.strip()
+        pattern = r"```(?:json)?\s*([\s\S]*?)\s*```"
+        match = re.search(pattern, text_to_parse)
+        if match:
+            return match.group(1).strip()
+        start_brace = text_to_parse.find("{")
+        start_bracket = text_to_parse.find("[")
+        start = -1
+        if start_brace != -1 and (start_bracket == -1 or start_brace < start_bracket):
+            start = start_brace
+            end = text_to_parse.rfind("}")
+        elif start_bracket != -1:
+            start = start_bracket
+            end = text_to_parse.rfind("]")
+        if start != -1 and end != -1 and end > start:
+            return text_to_parse[start : end + 1].strip()
+        return text_to_parse
 
     def _parse_completion(self, body: dict[str, Any], model_name: str) -> tuple[str, TokenUsage]:
         choices = body.get("choices") or []

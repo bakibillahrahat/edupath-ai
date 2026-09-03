@@ -6,7 +6,17 @@ import requests
 import streamlit as st
 
 from api.exceptions import BackendError
-from utils.config import BACKEND_URL, REQUEST_TIMEOUT_SECONDS, WORKFLOW_TIMEOUT_SECONDS
+from utils.config import (
+    BACKEND_URL,
+    CATALOG_SERVICE_URL,
+    COUNSELING_SERVICE_URL,
+    DOCUMENT_SERVICE_URL,
+    MEMORY_SERVICE_URL,
+    PROFILE_SERVICE_URL,
+    REQUEST_TIMEOUT_SECONDS,
+    TRACKER_SERVICE_URL,
+    WORKFLOW_TIMEOUT_SECONDS,
+)
 
 __all__ = [
     "BackendError",
@@ -25,6 +35,7 @@ __all__ = [
     "delete_document",
     "create_workflow",
     "analyze_counseling",
+    "get_counseling_session",
     "get_workflow",
     "list_workflows",
     "approve_workflow",
@@ -41,6 +52,10 @@ __all__ = [
     "revise_sop",
     "get_sop",
     "list_sops",
+    "list_applications",
+    "create_application",
+    "get_application",
+    "update_application",
 ]
 
 
@@ -78,17 +93,18 @@ def _auth_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"} if token else {}
 
 
-def _request(method: str, path: str, *, timeout: float | None = None, **kwargs: Any) -> Any:
-    url = f"{BACKEND_URL}{path}"
+def _request(method: str, path: str, *, service_url: str | None = None, timeout: float | None = None, **kwargs: Any) -> Any:
+    base = service_url or BACKEND_URL
+    url = f"{base}{path}"
     headers = {**_auth_headers(), **kwargs.pop("headers", {})}
     try:
         response = requests.request(method, url, timeout=timeout or REQUEST_TIMEOUT_SECONDS, headers=headers, **kwargs)
-    except requests.exceptions.ConnectionError as exc:
-        raise BackendError("Cannot connect to the EduPath-AI backend. Make sure the FastAPI server is running.") from exc
     except requests.exceptions.Timeout as exc:
-        raise BackendError("The backend took too long to respond. Please try again.") from exc
+        raise BackendError("The backend took too long to respond. The multi-agent workflow may still be processing in the background.", is_timeout=True) from exc
+    except requests.exceptions.ConnectionError as exc:
+        raise BackendError("Cannot connect to the EduPath-AI backend. Make sure the FastAPI server is running.", is_connection=True) from exc
     except requests.exceptions.RequestException as exc:
-        raise BackendError("Could not reach the EduPath-AI backend. Please try again.") from exc
+        raise BackendError("Could not reach the EduPath-AI backend. Please try again.", is_connection=True) from exc
 
     if not response.ok:
         raise _friendly_error_for_response(response)
@@ -113,58 +129,56 @@ def check_health() -> dict:
 
 @st.cache_data(ttl=5, show_spinner=False)
 def check_health_cached() -> dict:
-    """Same as check_health(), but throttled to avoid hitting the backend on
-    every single Streamlit rerun (e.g. the sidebar status indicator)."""
     return check_health()
 
 
 # ---------------------------------------------------------------------------
-# Auth -- mirrors app.schemas.auth
+# Auth -- mirrors Identity & Profile Service
 # ---------------------------------------------------------------------------
 
 
 def get_auth_config() -> dict:
-    return _request("GET", "/api/v1/auth/config")
+    return _request("GET", "/api/v1/auth/config", service_url=PROFILE_SERVICE_URL)
 
 
 def dev_login(email: str, name: str | None) -> dict:
     params = {"email": email}
     if name:
         params["name"] = name
-    return _request("GET", "/api/v1/auth/dev-login", params=params)
+    return _request("GET", "/api/v1/auth/dev-login", params=params, service_url=PROFILE_SERVICE_URL)
 
 
 def get_current_user() -> dict:
-    return _request("GET", "/api/v1/auth/me")
+    return _request("GET", "/api/v1/auth/me", service_url=PROFILE_SERVICE_URL)
 
 
 def logout() -> None:
-    _request("POST", "/api/v1/auth/logout")
+    _request("POST", "/api/v1/auth/logout", service_url=PROFILE_SERVICE_URL)
 
 
 # ---------------------------------------------------------------------------
-# Profiles -- mirrors app.schemas.profile (StudentProfileCreate/Update/Read)
+# Profiles -- mirrors Identity & Profile Service
 # ---------------------------------------------------------------------------
 
 
 def create_profile(payload: dict) -> dict:
-    return _request("POST", "/api/v1/profiles", json=payload)
+    return _request("POST", "/api/v1/profiles", json=payload, service_url=PROFILE_SERVICE_URL)
 
 
 def get_profile(profile_id: str) -> dict:
-    return _request("GET", f"/api/v1/profiles/{profile_id}")
+    return _request("GET", f"/api/v1/profiles/{profile_id}", service_url=PROFILE_SERVICE_URL)
 
 
 def get_my_profile() -> dict | None:
-    return _request("GET", "/api/v1/profiles/me")
+    return _request("GET", "/api/v1/profiles/me", service_url=PROFILE_SERVICE_URL)
 
 
 def update_profile(profile_id: str, payload: dict) -> dict:
-    return _request("PATCH", f"/api/v1/profiles/{profile_id}", json=payload)
+    return _request("PATCH", f"/api/v1/profiles/{profile_id}", json=payload, service_url=PROFILE_SERVICE_URL)
 
 
 # ---------------------------------------------------------------------------
-# Documents -- mirrors app.schemas.document (DocumentRead)
+# Documents -- mirrors Document Studio & SOP Service
 # ---------------------------------------------------------------------------
 
 
@@ -174,68 +188,65 @@ def upload_document(profile_id: str, document_type: str, filename: str, file_byt
         "/api/v1/documents",
         data={"profile_id": profile_id, "document_type": document_type},
         files={"file": (filename, file_bytes)},
+        service_url=DOCUMENT_SERVICE_URL,
     )
 
 
 def list_documents(profile_id: str) -> list[dict]:
-    return _request("GET", "/api/v1/documents", params={"profile_id": profile_id})
+    return _request("GET", "/api/v1/documents", params={"profile_id": profile_id}, service_url=DOCUMENT_SERVICE_URL)
 
 
 def delete_document(document_id: str) -> None:
-    _request("DELETE", f"/api/v1/documents/{document_id}")
+    _request("DELETE", f"/api/v1/documents/{document_id}", service_url=DOCUMENT_SERVICE_URL)
 
 
 # ---------------------------------------------------------------------------
-# Workflows -- mirrors app.schemas.workflow (WorkflowCreateRequest/Response)
+# Workflows & AI Counseling -- mirrors Counseling & Workflow Service
 # ---------------------------------------------------------------------------
 
 
 def create_workflow(payload: dict) -> dict:
-    # POST /api/v1/workflows runs the full LangGraph workflow synchronously
-    # (several sequential Gemini calls), so it needs a long client timeout.
-    return _request("POST", "/api/v1/workflows", json=payload, timeout=WORKFLOW_TIMEOUT_SECONDS)
+    return _request("POST", "/api/v1/workflows", json=payload, timeout=WORKFLOW_TIMEOUT_SECONDS, service_url=COUNSELING_SERVICE_URL)
 
 
 def analyze_counseling(payload: dict) -> dict:
-    """Compatibility wrapper for the counseling-style design while reusing the
-    same workflow engine behind the scenes."""
-    return _request("POST", "/api/v1/counseling/analyze", json=payload, timeout=WORKFLOW_TIMEOUT_SECONDS)
+    return _request("POST", "/api/v1/counseling/analyze", json=payload, timeout=WORKFLOW_TIMEOUT_SECONDS, service_url=COUNSELING_SERVICE_URL)
+
+
+def get_counseling_session(session_id: str) -> dict:
+    return _request("GET", f"/api/v1/counseling/{session_id}", service_url=COUNSELING_SERVICE_URL)
 
 
 def get_workflow(workflow_id: str) -> dict:
-    return _request("GET", f"/api/v1/workflows/{workflow_id}")
+    return _request("GET", f"/api/v1/workflows/{workflow_id}", service_url=COUNSELING_SERVICE_URL)
 
 
 def list_workflows(profile_id: str) -> list[dict]:
-    return _request("GET", "/api/v1/workflows", params={"profile_id": profile_id})
+    return _request("GET", "/api/v1/workflows", params={"profile_id": profile_id}, service_url=COUNSELING_SERVICE_URL)
 
 
 def approve_workflow(workflow_id: str, opportunity_id: str | None = None) -> dict:
-    """Resumes a workflow genuinely paused at the human-approval step,
-    continuing on to SOP generation."""
-    return _request("POST", f"/api/v1/workflows/{workflow_id}/approve", json={"opportunity_id": opportunity_id}, timeout=WORKFLOW_TIMEOUT_SECONDS)
+    return _request("POST", f"/api/v1/workflows/{workflow_id}/approve", json={"opportunity_id": opportunity_id}, timeout=WORKFLOW_TIMEOUT_SECONDS, service_url=COUNSELING_SERVICE_URL)
 
 
 def reject_workflow(workflow_id: str, opportunity_id: str | None = None) -> dict:
-    """Resumes a paused workflow, ending it without SOP generation."""
-    return _request("POST", f"/api/v1/workflows/{workflow_id}/reject", json={"opportunity_id": opportunity_id}, timeout=WORKFLOW_TIMEOUT_SECONDS)
+    return _request("POST", f"/api/v1/workflows/{workflow_id}/reject", json={"opportunity_id": opportunity_id}, timeout=WORKFLOW_TIMEOUT_SECONDS, service_url=COUNSELING_SERVICE_URL)
 
 
 def get_workflow_agents(workflow_id: str) -> list[dict]:
-    return _request("GET", f"/api/v1/workflows/{workflow_id}/agents")
+    return _request("GET", f"/api/v1/workflows/{workflow_id}/agents", service_url=COUNSELING_SERVICE_URL)
 
 
 def get_workflow_messages(workflow_id: str) -> list[dict]:
-    return _request("GET", f"/api/v1/workflows/{workflow_id}/messages")
+    return _request("GET", f"/api/v1/workflows/{workflow_id}/messages", service_url=COUNSELING_SERVICE_URL)
 
 
 def get_workflow_logs(workflow_id: str) -> list[dict]:
-    return _request("GET", f"/api/v1/workflows/{workflow_id}/logs").get("events", [])
+    return _request("GET", f"/api/v1/workflows/{workflow_id}/logs", service_url=COUNSELING_SERVICE_URL).get("events", [])
 
 
 def download_workflow_export(workflow_id: str) -> bytes:
-    """Excel export is binary, not JSON -- bypasses _request()'s json() parsing."""
-    url = f"{BACKEND_URL}/api/v1/workflows/{workflow_id}/export.xlsx"
+    url = f"{COUNSELING_SERVICE_URL}/api/v1/workflows/{workflow_id}/export.xlsx"
     try:
         response = requests.get(url, headers=_auth_headers(), timeout=REQUEST_TIMEOUT_SECONDS)
     except requests.exceptions.RequestException as exc:
@@ -246,52 +257,71 @@ def download_workflow_export(workflow_id: str) -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# Memory -- mirrors app.schemas.memory (MemoryRead)
+# Memory -- mirrors Agent Memory Service
 # ---------------------------------------------------------------------------
 
 
 def list_memory(profile_id: str) -> list[dict]:
-    return _request("GET", f"/api/v1/memory/{profile_id}")
+    return _request("GET", f"/api/v1/memory/{profile_id}", service_url=MEMORY_SERVICE_URL)
 
 
 # ---------------------------------------------------------------------------
-# SOP -- mirrors app.schemas.sop (SOPResponse)
+# SOP -- mirrors Document Studio & SOP Service
 # ---------------------------------------------------------------------------
 
 
 def generate_sop(profile_id: str, target_program: str | None = None, target_university: str | None = None, prompt: str | None = None) -> dict:
     return _request("POST", "/api/v1/sop/generate", json={
         "profile_id": profile_id, "target_program": target_program, "target_university": target_university, "prompt": prompt,
-    })
+    }, service_url=DOCUMENT_SERVICE_URL)
 
 
 def revise_sop(profile_id: str, sop_id: str, feedback: str) -> dict:
-    return _request("POST", "/api/v1/sop/revise", json={"profile_id": profile_id, "sop_id": sop_id, "feedback": feedback})
+    return _request("POST", "/api/v1/sop/revise", json={"profile_id": profile_id, "sop_id": sop_id, "feedback": feedback}, service_url=DOCUMENT_SERVICE_URL)
 
 
 def get_sop(sop_id: str) -> dict:
-    return _request("GET", f"/api/v1/sop/{sop_id}")
+    return _request("GET", f"/api/v1/sop/{sop_id}", service_url=DOCUMENT_SERVICE_URL)
 
 
 def list_sops(profile_id: str) -> list[dict]:
-    return _request("GET", "/api/v1/sop", params={"profile_id": profile_id})
+    return _request("GET", "/api/v1/sop", params={"profile_id": profile_id}, service_url=DOCUMENT_SERVICE_URL)
 
 
 # ---------------------------------------------------------------------------
-# Opportunities -- mirrors app.schemas.opportunity (OpportunityRead)
+# Opportunities -- mirrors Opportunity & University Catalog Service
 # ---------------------------------------------------------------------------
 
 
 def list_opportunities() -> list[dict]:
-    return _request("GET", "/api/v1/opportunities")
+    return _request("GET", "/api/v1/opportunities", service_url=CATALOG_SERVICE_URL)
 
 
 @st.cache_data(ttl=15, show_spinner=False)
 def list_opportunities_cached() -> list[dict]:
-    """Same as list_opportunities(), throttled for dashboard/summary widgets
-    that don't need to force a fresh fetch on every rerun."""
     return list_opportunities()
 
 
 def get_opportunity(opportunity_id: str) -> dict:
-    return _request("GET", f"/api/v1/opportunities/{opportunity_id}")
+    return _request("GET", f"/api/v1/opportunities/{opportunity_id}", service_url=CATALOG_SERVICE_URL)
+
+
+# ---------------------------------------------------------------------------
+# Applications -- mirrors Admissions Tracker Service
+# ---------------------------------------------------------------------------
+
+
+def list_applications(profile_id: str) -> list[dict]:
+    return _request("GET", "/api/v1/applications", params={"profile_id": profile_id}, service_url=TRACKER_SERVICE_URL) or []
+
+
+def create_application(payload: dict) -> dict:
+    return _request("POST", "/api/v1/applications", json=payload, service_url=TRACKER_SERVICE_URL)
+
+
+def get_application(application_id: str) -> dict:
+    return _request("GET", f"/api/v1/applications/{application_id}", service_url=TRACKER_SERVICE_URL)
+
+
+def update_application(application_id: str, payload: dict) -> dict:
+    return _request("PUT", f"/api/v1/applications/{application_id}", json=payload, service_url=TRACKER_SERVICE_URL)

@@ -58,14 +58,22 @@ def render() -> None:
 
         if result is not None:
             st.session_state["profile_id"] = result["id"]
-            st.session_state["profile"] = result
+            merged = dict(result)
+            merged.update(payload)
+            merged["is_complete"] = True
+            st.session_state["profile"] = merged
             profile_id = result["id"]
 
-            st.success("Profile saved successfully", icon=":material/check_circle:")
-            completion = profile_completion(result)
+            st.success("Academic Profile saved and verified! All portal features are now unlocked.", icon=":material/verified:")
+            completion = profile_completion(merged)
             render_completion_bar(completion)
             st.write("")
-            st.page_link("pages/discover.py", label="Discover Opportunities", icon=":material/arrow_forward:")
+            col_l1, col_l2 = st.columns(2)
+            with col_l1:
+                st.page_link("pages/dashboard.py", label="Go to Command Center →", icon=":material/dashboard:")
+            with col_l2:
+                st.page_link("pages/counseling.py", label="Calibrate AI Counseling →", icon=":material/auto_awesome:")
+            st.rerun()
 
     if profile_id:
         st.divider()

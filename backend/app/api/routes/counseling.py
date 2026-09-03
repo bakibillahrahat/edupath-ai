@@ -56,6 +56,9 @@ async def get_counseling_session(
     session: AsyncSession = Depends(get_db),
     service: WorkflowService = Depends(get_workflow_service),
 ) -> dict:
+    result = await service.get_workflow_result(session, session_id)
+    if result is not None:
+        return result
     workflow = await service.get_workflow(session, session_id)
     if workflow is None:
         raise HTTPException(status_code=404, detail="Counseling session not found")

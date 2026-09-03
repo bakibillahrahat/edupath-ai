@@ -13,7 +13,8 @@ st.set_page_config(
 )
 
 from components.auth import ensure_current_user, handle_oauth_redirect, render_login_gate, require_auth
-from components.sidebar import render_sidebar_brand, render_sidebar_footer
+from components.sidebar import render_sidebar_footer, render_sidebar_logo
+from utils.profile_guard import is_profile_complete
 from utils.session import init_session_state
 
 
@@ -47,61 +48,93 @@ def main() -> None:
         return
 
     require_auth()
-    render_sidebar_brand()
+    render_sidebar_logo()
 
-    nav = st.navigation(
-        {
-            "Workspace": [
-                st.Page(
-                    "pages/dashboard.py",
-                    title="Dashboard",
-                    icon=":material/dashboard:",
-                    default=True,
-                    url_path="dashboard",
-                ),
-                st.Page(
-                    "pages/counseling.py",
-                    title="AI Counseling Session",
-                    icon=":material/auto_awesome:",
-                    url_path="counseling",
-                ),
-                st.Page(
-                    "pages/discover.py",
-                    title="Opportunities & Saved",
-                    icon=":material/school:",
-                    url_path="opportunities",
-                ),
-            ],
-            "Applications": [
-                st.Page(
-                    "pages/sop.py",
-                    title="Document Studio",
-                    icon=":material/edit_note:",
-                    url_path="documents",
-                ),
-                st.Page(
-                    "pages/tracker.py",
-                    title="Application Tracker",
-                    icon=":material/checklist:",
-                    url_path="tracker",
-                ),
-                st.Page(
-                    "pages/profile.py",
-                    title="Student Profile",
-                    icon=":material/person:",
-                    url_path="profile",
-                ),
-            ],
-            "System": [
-                st.Page(
-                    "pages/settings.py",
-                    title="AI Insights & Settings",
-                    icon=":material/tune:",
-                    url_path="settings",
-                ),
-            ],
-        }
-    )
+    profile = st.session_state.get("profile")
+    profile_done = is_profile_complete(profile)
+
+    if not profile_done:
+        nav = st.navigation(
+            {
+                "Onboarding Gate": [
+                    st.Page(
+                        "pages/profile.py",
+                        title="Complete Academic Profile",
+                        icon=":material/badge:",
+                        default=True,
+                        url_path="profile",
+                    ),
+                ],
+                "Locked Features (Complete Profile First)": [
+                    st.Page(
+                        "pages/profile_gate.py",
+                        title="Dashboard (Locked 🔒)",
+                        icon=":material/lock:",
+                        url_path="dashboard-locked",
+                    ),
+                    st.Page(
+                        "pages/profile_gate.py",
+                        title="AI Counseling (Locked 🔒)",
+                        icon=":material/lock:",
+                        url_path="counseling-locked",
+                    ),
+                    st.Page(
+                        "pages/profile_gate.py",
+                        title="Admissions Tracker (Locked 🔒)",
+                        icon=":material/lock:",
+                        url_path="tracker-locked",
+                    ),
+                ],
+            }
+        )
+    else:
+        nav = st.navigation(
+            {
+                "Workspace": [
+                    st.Page(
+                        "pages/dashboard.py",
+                        title="Dashboard",
+                        icon=":material/dashboard:",
+                        default=True,
+                        url_path="dashboard",
+                    ),
+                    st.Page(
+                        "pages/discover.py",
+                        title="Opportunities & Saved",
+                        icon=":material/school:",
+                        url_path="opportunities",
+                    ),
+                ],
+                "Applications": [
+                    st.Page(
+                        "pages/sop.py",
+                        title="Document Studio (SOP)",
+                        icon=":material/edit_note:",
+                        url_path="documents",
+                    ),
+                    st.Page(
+                        "pages/tracker.py",
+                        title="Application Tracker",
+                        icon=":material/checklist:",
+                        url_path="tracker",
+                    ),
+                ],
+                "Account & System": [
+                    st.Page(
+                        "pages/profile.py",
+                        title="Academic Profile & Docs",
+                        icon=":material/badge:",
+                        url_path="profile",
+                    ),
+                    st.Page(
+                        "pages/settings.py",
+                        title="AI Settings & Memory",
+                        icon=":material/tune:",
+                        url_path="settings",
+                    ),
+                ],
+            }
+        )
 
     render_sidebar_footer()
     nav.run()

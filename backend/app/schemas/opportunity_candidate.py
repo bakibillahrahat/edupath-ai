@@ -40,6 +40,9 @@ class CandidateOpportunity(BaseModel):
     funding_amount: str | None = None
     deadline: str | None = None
     official_url: str | None = None
+    ielts_score: str | None = None
+    required_documents: list[str] = Field(default_factory=list)
+    eligibility_criteria: str | None = None
     evidence: list[Evidence] = Field(default_factory=list)
     created_by: str
 
@@ -51,6 +54,8 @@ class EligibilityVerdict(BaseModel):
     missing_requirements: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     explanation: str
+    ielts_score: str | None = None
+    required_documents: list[str] = Field(default_factory=list)
 
 
 class ResearchMatchVerdict(BaseModel):

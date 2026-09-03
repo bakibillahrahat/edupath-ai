@@ -26,8 +26,8 @@ def render() -> None:
             "Nothing to track yet",
             "Save an opportunity first, then track its progress through your application pipeline here.",
             icon="🗂️",
-            cta_label="Discover Opportunities",
-            cta_page="pages/discover.py",
+            cta_label="Explore Opportunities & Matches",
+            cta_page="pages/counseling.py",
             key="tracker-empty",
         )
         return
